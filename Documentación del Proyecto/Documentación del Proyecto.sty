@@ -47,7 +47,7 @@ Guadalajara, México}
 Universidad de Guadalajara \\
 Guadalajara, México}
 \and
-\IEEEauthorblockN{Alan Eduardo}
+\IEEEauthorblockN{González Ramírez Alan Leonardo}
 \IEEEauthorblockA{\textit{Centro Universitario de Ciencias} \\ \textit{Exactas e Ingenierías (CUCEI)} \\
 Universidad de Guadalajara \\
 Guadalajara, México}
@@ -56,7 +56,7 @@ Guadalajara, México}
 \maketitle
 
 \begin{abstract}
-El presente trabajo describe el diseño y la arquitectura de \emph{Museo CUCEI}, un sistema móvil multiplataforma orientado a transformar los espacios verdes del Centro Universitario de Ciencias Exactas e Ingenierías (CUCEI), y potencialmente de toda la red de Centros Universitarios de la Universidad de Guadalajara (UDG), en una experiencia cultural interactiva. La propuesta combina el escaneo de códigos QR colocados físicamente en los árboles del campus con técnicas de realidad aumentada (RA), de forma que cada árbol funcione como soporte físico para obras artísticas digitales creadas por la comunidad estudiantil. El sistema se sustenta en una arquitectura serverless basada en Cloudflare (Workers, D1 y R2), un esquema de autenticación por roles mediante Cloudflare Access y un cliente desarrollado en React Native con la librería ViroReact para el renderizado de contenido en realidad aumentada. Se detallan los roles de usuario, el modelo de datos, el flujo de aprobación de contenido y el plan de implementación por fases. Este documento se estructura conforme a los lineamientos del formato IEEE para publicaciones académicas, con el propósito de servir como entregable formal del proyecto modular.
+El presente trabajo describe el diseño y la arquitectura de \emph{Museo CUCEI}, un sistema móvil multiplataforma orientado a transformar los espacios verdes del Centro Universitario de Ciencias Exactas e Ingenierías (CUCEI), y potencialmente de toda la red de Centros Universitarios de la Universidad de Guadalajara (UDG), en una experiencia cultural interactiva. La propuesta combina el escaneo de códigos QR colocados físicamente en los árboles del campus con técnicas de realidad aumentada (RA), de forma que cada árbol funcione como soporte físico para obras artísticas digitales creadas por la comunidad estudiantil. Las obras pueden enviarse como imagen (JPG) o ya en formato de RA; al ser aprobadas, las imágenes se transforman al formato de RA y las obras que ya lo tienen se conservan sin cambios. La aplicación permite, además, guardar los árboles que el usuario selecciona o escanea para consultar su información y su escultura en cualquier momento, y habilita el acceso a la cámara del dispositivo para observarlos en RA. El sistema se sustenta en una arquitectura serverless basada en Cloudflare (Workers, D1 y R2), un esquema de autenticación por roles mediante Cloudflare Access y un cliente desarrollado en React Native con la librería ViroReact para el renderizado de contenido en realidad aumentada. Se detallan los roles de usuario, el modelo de datos, el flujo de aprobación de contenido, el plan de implementación por fases y las funcionalidades del sistema realizado. Este documento se estructura conforme a los lineamientos del formato IEEE para publicaciones académicas, con el propósito de servir como entregable formal del proyecto modular.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -65,6 +65,8 @@ realidad aumentada, códigos QR, aplicación móvil, arquitectura serverless, Cl
 
 \section{Introducción}
 La incorporación de tecnologías móviles y de realidad aumentada (RA) en espacios educativos ha demostrado ser un mecanismo eficaz para incrementar el involucramiento de la comunidad estudiantil con su entorno físico \cite{azuma1997survey}. En este contexto, el proyecto \emph{Museo CUCEI} propone convertir los árboles del campus del Centro Universitario de Ciencias Exactas e Ingenierías en soportes de obras artísticas digitales, generadas por los propios estudiantes y visualizadas mediante dispositivos móviles.
+
+\emph{Museo CUCEI} es un proyecto universitario desarrollado para el departamento de sustentabilidad, con fines culturales, educativos y de divulgación ambiental.
 
 El sistema se apoya en la lectura de códigos QR físicos, los cuales actúan como identificadores únicos de cada árbol y, simultáneamente, como marcadores de rastreo (\emph{image tracking}) para la superposición de contenido en RA. La solución está pensada desde su concepción como un sistema \emph{modular} y \emph{escalable}, capaz de operar no solo en CUCEI, sino en el conjunto de Centros Universitarios (CU) que conforman la Red Universitaria de Jalisco.
 
@@ -85,6 +87,9 @@ Diseñar e implementar una arquitectura modular de aplicación móvil que permit
     \item Diseñar un esquema de base de datos relacional capaz de soportar el ciclo de vida completo de una propuesta artística, desde su envío hasta su publicación.
     \item Especificar una API RESTful desplegada sobre infraestructura \emph{serverless} para la gestión de árboles, usuarios y propuestas.
     \item Integrar un módulo de realidad aumentada basado en el reconocimiento de códigos QR como marcadores de imagen.
+    \item Permitir que el usuario guarde los árboles que selecciona o escanea, para consultar su información y su escultura en cualquier momento.
+    \item Habilitar el acceso a la cámara del dispositivo para observar las obras en realidad aumentada.
+    \item Soportar el envío de obras en formato de imagen (JPG) o ya en formato de RA, transformando al formato de RA las imágenes aprobadas.
     \item Establecer un plan de implementación por fases (\emph{sprints}) que permita el desarrollo incremental del sistema.
 \end{itemize}
 
@@ -128,7 +133,7 @@ El sistema define tres niveles de acceso jerárquicos, resumidos en la Tabla~\re
 \toprule
 \textbf{Rol} & \textbf{Nivel} & \textbf{Permisos} \\
 \midrule
-Visitante & 1 & Escanear códigos QR, consultar información del árbol y visualizar la obra artística en RA. Acceso mediante cuenta compartida sin autenticación explícita. \\
+Visitante & 1 & Escanear códigos QR, consultar información del árbol, visualizar la obra artística en RA y guardar los árboles consultados. Acceso mediante cuenta compartida sin autenticación explícita. \\
 Estudiante & 2 & Todo lo del visitante, además de enviar propuestas de imagen artística. Requiere correo institucional \texttt{@alumnos.udg.mx}. \\
 Administrador & 7 & Todo lo anterior, más revisión, aprobación o rechazo de propuestas, asignación de imágenes a árboles, y alta/edición de árboles dentro de su Centro Universitario. \\
 \bottomrule
@@ -138,13 +143,13 @@ Administrador & 7 & Todo lo anterior, más revisión, aprobación o rechazo de p
 Cada administrador opera dentro del alcance (\emph{scope}) exclusivo de su propio Centro Universitario, lo cual garantiza la escalabilidad del sistema hacia el resto de la red UDG sin comprometer la separación administrativa de los contenidos.
 
 \subsection{Capa de cliente}
-El cliente se desarrolla con \textbf{React Native} sobre el \emph{framework} Expo, empleando \textbf{React Navigation} para el enrutamiento entre pantallas y \texttt{expo-secure-store} para el almacenamiento seguro del token de sesión (JWT). El módulo de realidad aumentada se implementa mediante \textbf{ViroReact}, una biblioteca de código abierto compatible con Android e iOS.
+El cliente se desarrolla con \textbf{React Native} sobre el \emph{framework} Expo, empleando \textbf{React Navigation} para el enrutamiento entre pantallas y \texttt{expo-secure-store} para el almacenamiento seguro del token de sesión (JWT). El módulo de realidad aumentada se implementa mediante \textbf{ViroReact}, una biblioteca de código abierto compatible con Android e iOS. Para escanear los códigos QR y observar las obras en RA, la aplicación solicita acceso a la cámara del dispositivo mediante \texttt{expo-camera}. La navegación se realiza mediante un menú lateral con tres secciones: pantalla principal, visualización de arte y árboles recientes.
 
 \subsection{Capa de autenticación}
-La autenticación se delega en \textbf{Cloudflare Access}, empleando un esquema de \emph{One-Time Password} (OTP) enviado por correo electrónico (\emph{magic link}). El dominio del correo institucional determina el rol asignado: los correos \texttt{@udg.mx} obtienen privilegios de administrador, los correos \texttt{@alumnos.udg.mx} pueden operar como estudiante o administrador según configuración, y el acceso sin autenticación corresponde al rol de visitante mediante una cuenta fija predeterminada. El token resultante es un JWT firmado por Cloudflare y validado en cada solicitud dentro del \emph{Worker}.
+La autenticación se delega en \textbf{Cloudflare Access}, empleando un esquema de \emph{One-Time Password} (OTP) enviado por correo electrónico (\emph{magic link}). El dominio del correo institucional determina el rol asignado: los correos \texttt{@udg.mx} obtienen privilegios de administrador, los correos \texttt{@alumnos.udg.mx} pueden operar como estudiante o administrador según configuración, y el acceso sin autenticación corresponde al rol de visitante mediante una cuenta fija predeterminada. El token resultante es un JWT firmado por Cloudflare y validado en cada solicitud dentro del \emph{Worker}. La aplicación incluye pantallas de inicio de sesión y de registro.
 
 \subsection{Capa de API}
-La lógica de negocio se expone a través de un \textbf{Cloudflare Worker}, que implementa un conjunto de rutas RESTful resumidas en la Tabla~\ref{tab:rutas}.
+La lógica de la aplicación se expone a través de un \textbf{Cloudflare Worker}, que implementa un conjunto de rutas RESTful resumidas en la Tabla~\ref{tab:rutas}.
 
 \begin{table}[htbp]
 \caption{Rutas de la API expuestas por el Worker}
@@ -165,6 +170,8 @@ PUT & /arbol/:id & $=7$ & Edición de un árbol existente \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+La API incluye además las rutas para guardar y consultar los árboles guardados por el usuario.
 
 El Listado~\ref{lst:worker} muestra un extracto representativo de la implementación del \emph{Worker}, donde se valida el rol del usuario antes de autorizar operaciones sensibles como el envío o la aprobación de propuestas.
 
@@ -198,13 +205,13 @@ export default {
 \end{lstlisting}
 
 \subsection{Capa de datos estructurados}
-El almacenamiento relacional se implementa mediante \textbf{Cloudflare D1}, una base de datos SQLite distribuida sin servidor, con un nivel gratuito de hasta 500~MB. El modelo entidad-relación contempla cinco entidades principales: \texttt{centros}, \texttt{arboles}, \texttt{usuarios}, \texttt{propuestas} y \texttt{escaneos}, descritas en la Sección~\ref{sec:bd}.
+El almacenamiento relacional se implementa mediante \textbf{Cloudflare D1}, una base de datos SQLite distribuida sin servidor, con un nivel gratuito de hasta 500~MB. El modelo entidad-relación contempla cinco entidades principales: \texttt{centros}, \texttt{arboles}, \texttt{usuarios}, \texttt{propuestas} y \texttt{escaneos}, descritas en la Sección~\ref{sec:bd}. El modelo incluye además una relación entre usuarios y árboles que soporta el guardado de árboles por parte del usuario.
 
 \subsection{Capa de almacenamiento de objetos}
 Las imágenes y los \emph{assets} de realidad aumentada se almacenan en \textbf{Cloudflare R2}, con un nivel gratuito de hasta 10~GB, organizados en cuatro directorios lógicos: imágenes aprobadas, propuestas pendientes de revisión, \emph{assets} procesados para ViroReact y fotografías de referencia del árbol físico.
 
 \subsection{Módulo de realidad aumentada}
-El módulo de RA emplea el código QR físico como marcador de imagen (\texttt{ImageTracker}) mediante el componente \texttt{ViroARImageMarker}. Al detectar el marcador, la aplicación recupera la URL del \emph{asset} artístico asociado y lo superpone sobre el árbol en tiempo real, como se ilustra en el Listado~\ref{lst:ar}.
+El módulo de RA emplea el código QR físico como marcador de imagen (\texttt{ImageTracker}) mediante el componente \texttt{ViroARImageMarker}. Al detectar el marcador, la aplicación recupera la URL del \emph{asset} artístico asociado y lo superpone sobre el árbol en tiempo real, como se ilustra en el Listado~\ref{lst:ar}. La visualización en RA utiliza la cámara del dispositivo.
 
 \begin{lstlisting}[caption={Componente de escena de realidad aumentada}, label={lst:ar}]
 ViroARTrackingTargets.createTargets({
@@ -230,11 +237,14 @@ export default function ARScene({ arAssetUrl }) {
 }
 \end{lstlisting}
 
-Cuando una propuesta es aprobada, el sistema procesa la imagen original (JPG/PNG) para generar un \emph{asset} optimizado de 1024$\times$1024 píxeles con fondo transparente, el cual se almacena en el directorio \texttt{/ar-assets/} de R2 y se referencia en el campo \texttt{ar\_asset\_url} de la tabla \texttt{arboles}.
+Las propuestas pueden enviarse como imagen (JPG) o ya en formato de RA. Cuando una propuesta es aprobada, el sistema procede según el formato recibido: si se trata de una imagen, la procesa (JPG/PNG) para generar un \emph{asset} optimizado de 1024$\times$1024 píxeles con fondo transparente, el cual se almacena en el directorio \texttt{/ar-assets/} de R2 y se referencia en el campo \texttt{ar\_asset\_url} de la tabla \texttt{arboles}; si la obra ya fue enviada en formato de RA, se conserva tal cual, sin conversión, y se almacena y referencia de la misma manera.
+
+\subsection{Consulta y guardado de árboles}
+Además de la visualización en RA, la aplicación permite consultar la información de cada árbol y su escultura dentro de una pantalla de detalle, sin necesidad de estar frente al árbol. El usuario puede guardar los árboles que selecciona o escanea para volver a consultar su ficha y su escultura en cualquier momento. La pantalla de detalle muestra la obra (como modelo tridimensional que puede observarse en pantalla) junto con la ficha del árbol: código, nombre común, altura, diámetro, CO$_2$ mitigado, estado de salud, presencia de daños, requerimiento de supervisión, si es conífera, biomasa total, ubicación, fecha de registro y comentarios. Asimismo, la sección de árboles recientes lista los árboles registrados con su código, altura, estado y fecha de registro. El acceso a la cámara permanece disponible para observar la obra en RA sobre el árbol. Los árboles guardados permanecen disponibles para su consulta posterior.
 
 \section{Diseño de la Base de Datos}
 \label{sec:bd}
-El modelo de datos se normaliza en cinco tablas relacionales. La tabla \texttt{centros} almacena el catálogo de Centros Universitarios de la red UDG; la tabla \texttt{arboles} contiene los metadatos botánicos, la ubicación geográfica y las referencias a los recursos visuales de cada árbol; la tabla \texttt{usuarios} registra el correo institucional, el rol y el centro de adscripción; la tabla \texttt{propuestas} gestiona el ciclo de vida de cada imagen enviada por un estudiante, incluyendo su estado (\emph{pendiente}, \emph{aprobada} o \emph{rechazada}); y la tabla \texttt{escaneos} registra eventos de interacción con fines analíticos. El Listado~\ref{lst:sql} presenta la definición de la tabla central del sistema.
+El modelo de datos se normaliza en cinco tablas relacionales. La tabla \texttt{centros} almacena el catálogo de Centros Universitarios de la red UDG; la tabla \texttt{arboles} contiene los metadatos botánicos, la ubicación geográfica y las referencias a los recursos visuales de cada árbol; la tabla \texttt{usuarios} registra el correo institucional, el rol y el centro de adscripción; la tabla \texttt{propuestas} gestiona el ciclo de vida de cada imagen enviada por un estudiante, incluyendo su estado (\emph{pendiente}, \emph{aprobada} o \emph{rechazada}); y la tabla \texttt{escaneos} registra eventos de interacción con fines analíticos. La tabla \texttt{arboles} incluye además los campos de la ficha del árbol descritos en la sección anterior (altura, diámetro, CO$_2$ mitigado, estado de salud, biomasa, entre otros). El Listado~\ref{lst:sql} presenta la definición de la tabla central del sistema.
 
 \begin{lstlisting}[caption={Definición de la tabla de propuestas}, label={lst:sql}]
 CREATE TABLE propuestas (
@@ -251,10 +261,10 @@ CREATE TABLE propuestas (
 \end{lstlisting}
 
 \section{Flujo de Aprobación de Contenido}
-El ciclo de publicación de una obra artística sigue cuatro etapas secuenciales: (1) el estudiante envía una propuesta de imagen asociada a un árbol específico mediante la ruta \texttt{POST /propuesta}; (2) la propuesta se almacena con estado \emph{pendiente} en la tabla \texttt{propuestas} y el archivo se aloja temporalmente en \texttt{/arboles/pendientes/} dentro de R2; (3) el administrador del Centro Universitario correspondiente revisa la propuesta a través de \texttt{GET /propuestas} y decide aprobarla o rechazarla; (4) en caso de aprobación, el Worker actualiza el estado de la propuesta, mueve la imagen al directorio de publicadas, genera el \emph{asset} de realidad aumentada y actualiza el registro del árbol correspondiente.
+El ciclo de publicación de una obra artística sigue cuatro etapas secuenciales: (1) el estudiante envía una propuesta asociada a un árbol específico, ya sea como imagen (JPG) o ya en formato de RA, mediante la ruta \texttt{POST /propuesta}; (2) la propuesta se almacena con estado \emph{pendiente} en la tabla \texttt{propuestas} y el archivo se aloja temporalmente en \texttt{/arboles/pendientes/} dentro de R2; (3) el administrador del Centro Universitario correspondiente revisa la propuesta a través de \texttt{GET /propuestas} y decide aprobarla o rechazarla; (4) en caso de aprobación, el Worker actualiza el estado de la propuesta, mueve el archivo al directorio de publicadas, genera el \emph{asset} de realidad aumentada si la obra fue enviada como imagen (o lo conserva sin cambios si ya estaba en formato de RA) y actualiza el registro del árbol correspondiente.
 
 \section{Metodología de Implementación}
-El desarrollo del sistema se planificó en seis fases incrementales de una semana cada una, conforme a un enfoque ágil, como se resume en la Tabla~\ref{tab:cronograma}.
+El desarrollo del sistema se llevó a cabo en seis fases incrementales de una semana cada una, conforme a un enfoque ágil, como se resume en la Tabla~\ref{tab:cronograma}.
 
 \begin{table}[htbp]
 \caption{Cronograma de implementación por fases}
@@ -287,7 +297,7 @@ La Tabla~\ref{tab:stack} resume el conjunto tecnológico (\emph{stack}) empleado
 \midrule
 Cliente móvil & React Native + Expo \\
 Realidad aumentada & ViroReact (\texttt{@viro-community/react-viro}) \\
-Escaneo de QR & \texttt{expo-barcode-scanner} \\
+Escaneo de QR y cámara & \texttt{expo-camera} \\
 Almacenamiento seguro & \texttt{expo-secure-store} \\
 Navegación & React Navigation \\
 Autenticación & Cloudflare Access (OTP por correo) \\
@@ -298,11 +308,24 @@ Almacenamiento de objetos & Cloudflare R2 \\
 \end{tabular}
 \end{table}
 
-\section{Resultados Esperados}
-Se espera que la implementación de \emph{Museo CUCEI} permita, al finalizar la sexta semana del proyecto, contar con una aplicación funcional capaz de: reconocer códigos QR físicos y asociarlos a la información de un árbol; permitir el envío y la moderación de propuestas artísticas por parte de estudiantes y administradores; y renderizar en tiempo real, mediante realidad aumentada, las obras aprobadas sobre el árbol correspondiente. Asimismo, se espera que el costo de operación del sistema se mantenga dentro de los niveles gratuitos ofrecidos por Cloudflare (D1 y R2), lo que favorece su viabilidad como proyecto piloto replicable en otros Centros Universitarios de la red UDG.
+\section{Funcionalidades Implementadas}
+\emph{Museo CUCEI} se encuentra realizado y cuenta con las siguientes funcionalidades:
+\begin{itemize}
+    \item pantalla de inicio de sesión y de registro;
+    \item pantalla principal con el logotipo y el lema del proyecto, y menú lateral de navegación;
+    \item escaneo de códigos QR y acceso a la cámara para observar las obras en realidad aumentada;
+    \item visualización de la obra del árbol (modelo tridimensional) junto con su ficha técnica;
+    \item guardado de los árboles seleccionados o escaneados para su consulta posterior;
+    \item listado de árboles recientes;
+    \item conexión con la base de datos en Cloudflare D1 y almacenamiento de obras en Cloudflare R2;
+    \item autenticación, control de roles y flujo de envío, revisión y aprobación de propuestas, con conversión de imágenes JPG al formato de RA.
+\end{itemize}
+
+\section{Resultados}
+La implementación de \emph{Museo CUCEI} permitió contar con una aplicación funcional capaz de: reconocer códigos QR físicos y asociarlos a la información de un árbol; permitir el envío y la moderación de propuestas artísticas por parte de estudiantes y administradores; y renderizar en tiempo real, mediante realidad aumentada, las obras aprobadas sobre el árbol correspondiente. Asimismo, el usuario puede guardar los árboles que consulta para revisar su información y su escultura en cualquier momento, y el sistema opera dentro de los niveles gratuitos ofrecidos por Cloudflare (D1 y R2), lo que favorece su viabilidad como proyecto piloto replicable en otros Centros Universitarios de la red UDG.
 
 \section{Conclusiones}
-La arquitectura propuesta para \emph{Museo CUCEI} demuestra que es posible construir una experiencia cultural interactiva de bajo costo mediante la combinación de códigos QR, realidad aumentada y una infraestructura \emph{serverless}. El diseño modular por capas, el modelo de roles jerárquico y el flujo de aprobación de contenido garantizan un sistema escalable, seguro y fácilmente extensible a otros Centros Universitarios de la Universidad de Guadalajara. Como trabajo futuro se plantea la incorporación de métricas de analítica más robustas a partir de la tabla \texttt{escaneos}, así como la evaluación de la experiencia de usuario mediante pruebas de campo en el campus de CUCEI.
+La arquitectura propuesta para \emph{Museo CUCEI} demuestra que es posible construir una experiencia cultural interactiva de bajo costo mediante la combinación de códigos QR, realidad aumentada y una infraestructura \emph{serverless}. El diseño modular por capas, el modelo de roles jerárquico y el flujo de aprobación de contenido garantizan un sistema escalable, seguro y fácilmente extensible a otros Centros Universitarios de la Universidad de Guadalajara. La posibilidad de guardar árboles para su consulta posterior, junto con el acceso a la cámara para la visualización en RA, amplía la experiencia más allá del momento del escaneo. Como trabajo futuro se plantea la incorporación de métricas de analítica más robustas a partir de la tabla \texttt{escaneos}, así como la evaluación de la experiencia de usuario mediante pruebas de campo en el campus de CUCEI.
 
 \begin{thebibliography}{00}
 \bibitem{azuma1997survey} R. T. Azuma, ``A survey of augmented reality,'' \textit{Presence: Teleoperators and Virtual Environments}, vol. 6, no. 4, pp. 355--385, 1997.
