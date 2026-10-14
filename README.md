@@ -40,7 +40,7 @@ Cada árbol del campus cuenta con un código QR físico que funciona simultánea
 1. **Identificador único** del árbol (ficha botánica, ubicación, descripción).
 2. **Marcador de realidad aumentada** (`ImageTracker`) sobre el cual se superpone la obra artística aprobada para ese árbol.
 
-Los estudiantes proponen obras asociadas a un árbol específico, ya sea como imagen (JPG) o ya en formato de RA; un administrador del Centro Universitario revisa, aprueba o rechaza la propuesta, y una vez aprobada, la obra se publica y queda visible en RA para cualquier visitante que escanee el QR correspondiente.
+Los estudiantes proponen obras asociadas a un árbol específico, ya sea como imagen (JPG) o ya en formato de RA (GLB); un administrador del Centro Universitario revisa, aprueba o rechaza la propuesta, y una vez aprobada, la obra se publica y queda visible en RA para cualquier visitante que escanee el QR correspondiente.
 
 ## ✨ Características principales
 
@@ -51,7 +51,7 @@ Los estudiantes proponen obras asociadas a un árbol específico, ya sea como im
 - 💾 Los usuarios pueden guardar los árboles que seleccionan o escanean para consultar su información y su escultura en cualquier momento.
 - 🌿 Ficha técnica y ambiental de cada árbol (altura, diámetro, CO₂ mitigado, estado de salud, biomasa, ubicación, entre otros).
 - 🔐 Autenticación sin fricción basada en dominio de correo institucional (Cloudflare Access).
-- 🧑‍🎨 Flujo de propuesta → revisión → aprobación de contenido artístico (obras en JPG o en formato de RA).
+- 🧑‍🎨 Flujo de propuesta → revisión → aprobación de contenido artístico (obras en JPG o en formato de RA, GLB).
 - 🏫 Arquitectura multi-centro: cada administrador gestiona únicamente los árboles de su propio CU.
 - ☁️ Infraestructura 100% *serverless* (Cloudflare Workers, D1 y R2), operable dentro de los niveles gratuitos.
 - 📊 Registro de escaneos con fines analíticos.
@@ -103,6 +103,8 @@ El módulo de realidad aumentada usa el código QR físico como `ViroARImageMark
 |---|---|
 | Cliente móvil | React Native + Expo |
 | Realidad aumentada | [ViroReact](https://github.com/ViroCommunity/viro) (`@viro-community/react-viro`) |
+| Formato de obras en RA | GLB |
+| Renderizado en pantalla | Componente TSX generado a partir del GLB |
 | Escaneo de QR y cámara | `expo-camera` |
 | Almacenamiento seguro (JWT) | `expo-secure-store` |
 | Navegación | `@react-navigation/native` |
@@ -170,7 +172,7 @@ El esquema completo está disponible en [`worker/schema.sql`](./worker/schema.sq
 |---|---|---|---|
 | `GET` | `/arbol/:id` | ≥ 1 | Información pública de un árbol |
 | `GET` | `/arboles` | ≥ 1 | Listado de árboles por Centro Universitario |
-| `POST` | `/propuesta` | ≥ 2 | Enviar una obra (imagen JPG o formato de RA) |
+| `POST` | `/propuesta` | ≥ 2 | Enviar una obra (imagen JPG o modelo GLB para RA) |
 | `GET` | `/propuestas` | = 7 | Consultar propuestas pendientes |
 | `PUT` | `/aprobar/:id` | = 7 | Aprobar una propuesta |
 | `PUT` | `/rechazar/:id` | = 7 | Rechazar una propuesta |
@@ -256,19 +258,19 @@ npx expo start
 
 Las obras pueden enviarse en dos formatos:
 
-- **Imagen (JPG).** Al ser aprobada, el sistema la transforma al formato de RA y la publica.
-- **Ya en formato de RA.** Al ser aprobada, se conserva tal cual, sin conversión.
+- **Imagen (JPG).** Al ser aprobada, el sistema la transforma a GLB (el formato de RA) y la publica.
+- **Ya en formato de RA (GLB).** Al ser aprobada, se conserva tal cual, sin conversión.
 
 Pasos:
 
-1. El **estudiante** envía una propuesta asociada a un árbol (`POST /propuesta`), como imagen JPG o en formato de RA.
+1. El **estudiante** envía una propuesta asociada a un árbol (`POST /propuesta`), como imagen JPG o en formato de RA (GLB).
 2. La propuesta se guarda con estado `pendiente` y el archivo se aloja temporalmente en `/arboles/pendientes/` en R2.
 3. El **administrador** de ese Centro Universitario revisa la propuesta (`GET /propuestas`) y decide aprobarla o rechazarla.
-4. Si se aprueba, el Worker mueve el archivo a `/arboles/aprobadas/`; si se envió como imagen, genera el *asset* de RA (1024×1024 px, PNG con fondo transparente) en `/arboles/ar-assets/`; si ya venía en formato de RA, lo conserva sin cambios. Finalmente actualiza el árbol correspondiente.
+4. Si se aprueba, el Worker mueve el archivo a `/arboles/aprobadas/`; si se envió como imagen, genera el *asset* de RA en formato GLB en `/arboles/ar-assets/`; si ya venía en GLB, lo conserva sin cambios. Finalmente actualiza el árbol correspondiente.
 
 ## 🌿 Árboles guardados y ficha del árbol
 
-Además de la visualización en RA con la cámara, el usuario puede consultar cada árbol desde una pantalla de detalle y **guardar los árboles que selecciona o escanea** para volver a ver su información y su escultura en cualquier momento.
+Además de la visualización en RA con la cámara, el usuario puede consultar cada árbol desde una pantalla de detalle y **guardar los árboles que selecciona o escanea** para volver a ver su información y su escultura en cualquier momento. Para su renderizado en pantalla, la obra en formato GLB se convierte a un componente TSX; en RA se mantiene como GLB.
 
 La ficha del árbol muestra: código (por ejemplo, `RECT-01-0001`), nombre común, altura, diámetro, CO₂ mitigado, estado de salud, presencia de daños, requerimiento de supervisión, si es conífera, biomasa total, ubicación, fecha de registro y comentarios. La sección de árboles recientes lista los árboles registrados con su código, altura, estado y fecha de registro.
 
@@ -280,11 +282,11 @@ Museo CUCEI está **realizado** y cuenta con las siguientes funcionalidades:
 - Pantalla de inicio de sesión y registro.
 - Pantalla principal y menú lateral (Pantalla principal, Visualizar arte, Ver árboles recientes).
 - Escaneo de códigos QR y acceso a la cámara para observar las obras en realidad aumentada.
-- Visualización de la obra del árbol (modelo 3D) con su ficha técnica.
+- Visualización de la obra del árbol (modelo 3D: GLB convertido a TSX para su renderizado en pantalla) con su ficha técnica.
 - Guardado de los árboles seleccionados o escaneados para su consulta posterior.
 - Listado de árboles recientes.
 - Conexión con la base de datos (Cloudflare D1) y almacenamiento de obras (Cloudflare R2).
-- Autenticación, control de roles y flujo de envío, revisión y aprobación de propuestas, con conversión de imágenes JPG al formato de RA.
+- Autenticación, control de roles y flujo de envío, revisión y aprobación de propuestas, con conversión de imágenes JPG al formato de RA (GLB).
 
 ## 🗓️ Plan de implementación
 
