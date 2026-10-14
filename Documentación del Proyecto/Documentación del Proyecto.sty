@@ -56,7 +56,7 @@ Guadalajara, México}
 \maketitle
 
 \begin{abstract}
-El presente trabajo describe el diseño y la arquitectura de \emph{Museo CUCEI}, un sistema móvil multiplataforma orientado a transformar los espacios verdes del Centro Universitario de Ciencias Exactas e Ingenierías (CUCEI), y potencialmente de toda la red de Centros Universitarios de la Universidad de Guadalajara (UDG), en una experiencia cultural interactiva. La propuesta combina el escaneo de códigos QR colocados físicamente en los árboles del campus con técnicas de realidad aumentada (RA), de forma que cada árbol funcione como soporte físico para obras artísticas digitales creadas por la comunidad estudiantil. Las obras pueden enviarse como imagen (JPG) o ya en formato de RA; al ser aprobadas, las imágenes se transforman al formato de RA y las obras que ya lo tienen se conservan sin cambios. La aplicación permite, además, guardar los árboles que el usuario selecciona o escanea para consultar su información y su escultura en cualquier momento, y habilita el acceso a la cámara del dispositivo para observarlos en RA. El sistema se sustenta en una arquitectura serverless basada en Cloudflare (Workers, D1 y R2), un esquema de autenticación por roles mediante Cloudflare Access y un cliente desarrollado en React Native con la librería ViroReact para el renderizado de contenido en realidad aumentada. Se detallan los roles de usuario, el modelo de datos, el flujo de aprobación de contenido, el plan de implementación por fases y las funcionalidades del sistema realizado. Este documento se estructura conforme a los lineamientos del formato IEEE para publicaciones académicas, con el propósito de servir como entregable formal del proyecto modular.
+El presente trabajo describe el diseño y la arquitectura de \emph{Museo CUCEI}, un sistema móvil multiplataforma orientado a transformar los espacios verdes del Centro Universitario de Ciencias Exactas e Ingenierías (CUCEI), y potencialmente de toda la red de Centros Universitarios de la Universidad de Guadalajara (UDG), en una experiencia cultural interactiva. La propuesta combina el escaneo de códigos QR colocados físicamente en los árboles del campus con técnicas de realidad aumentada (RA), de forma que cada árbol funcione como soporte físico para obras artísticas digitales creadas por la comunidad estudiantil. Las obras pueden enviarse como imagen (JPG) o ya en formato de RA (GLB); al ser aprobadas, las imágenes se transforman a GLB y las obras que ya están en ese formato se conservan sin cambios. La aplicación permite, además, guardar los árboles que el usuario selecciona o escanea para consultar su información y su escultura en cualquier momento, y habilita el acceso a la cámara del dispositivo para observarlos en RA. El sistema se sustenta en una arquitectura serverless basada en Cloudflare (Workers, D1 y R2), un esquema de autenticación por roles mediante Cloudflare Access y un cliente desarrollado en React Native con la librería ViroReact para el renderizado de contenido en realidad aumentada. Se detallan los roles de usuario, el modelo de datos, el flujo de aprobación de contenido, el plan de implementación por fases y las funcionalidades del sistema realizado. Este documento se estructura conforme a los lineamientos del formato IEEE para publicaciones académicas, con el propósito de servir como entregable formal del proyecto modular.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -89,7 +89,7 @@ Diseñar e implementar una arquitectura modular de aplicación móvil que permit
     \item Integrar un módulo de realidad aumentada basado en el reconocimiento de códigos QR como marcadores de imagen.
     \item Permitir que el usuario guarde los árboles que selecciona o escanea, para consultar su información y su escultura en cualquier momento.
     \item Habilitar el acceso a la cámara del dispositivo para observar las obras en realidad aumentada.
-    \item Soportar el envío de obras en formato de imagen (JPG) o ya en formato de RA, transformando al formato de RA las imágenes aprobadas.
+    \item Soportar el envío de obras en formato de imagen (JPG) o ya en formato de RA (GLB), transformando a GLB las imágenes aprobadas.
     \item Establecer un plan de implementación por fases (\emph{sprints}) que permita el desarrollo incremental del sistema.
 \end{itemize}
 
@@ -226,8 +226,9 @@ export default function ARScene({ arAssetUrl }) {
   return (
     <ViroARScene>
       <ViroARImageMarker target="qrArbol">
-        <ViroImage
+        <Viro3DObject
           source={{ uri: arAssetUrl }}
+          type="GLB"
           scale={[0.5, 0.5, 0.5]}
           position={[0, 0.3, 0]}
         />
@@ -237,10 +238,10 @@ export default function ARScene({ arAssetUrl }) {
 }
 \end{lstlisting}
 
-Las propuestas pueden enviarse como imagen (JPG) o ya en formato de RA. Cuando una propuesta es aprobada, el sistema procede según el formato recibido: si se trata de una imagen, la procesa (JPG/PNG) para generar un \emph{asset} optimizado de 1024$\times$1024 píxeles con fondo transparente, el cual se almacena en el directorio \texttt{/ar-assets/} de R2 y se referencia en el campo \texttt{ar\_asset\_url} de la tabla \texttt{arboles}; si la obra ya fue enviada en formato de RA, se conserva tal cual, sin conversión, y se almacena y referencia de la misma manera.
+Las propuestas pueden enviarse como imagen (JPG) o ya en formato de RA, que en este proyecto es GLB. Cuando una propuesta es aprobada, el sistema procede según el formato recibido: si se trata de una imagen, la transforma a GLB; si la obra ya fue enviada en GLB, se conserva tal cual, sin conversión. En ambos casos, el archivo GLB se almacena en el directorio \texttt{/ar-assets/} de R2 y se referencia en el campo \texttt{ar\_asset\_url} de la tabla \texttt{arboles}. Al estar en RA, la obra se mantiene en formato GLB y ViroReact la carga mediante el componente \texttt{Viro3DObject}.
 
 \subsection{Consulta y guardado de árboles}
-Además de la visualización en RA, la aplicación permite consultar la información de cada árbol y su escultura dentro de una pantalla de detalle, sin necesidad de estar frente al árbol. El usuario puede guardar los árboles que selecciona o escanea para volver a consultar su ficha y su escultura en cualquier momento. La pantalla de detalle muestra la obra (como modelo tridimensional que puede observarse en pantalla) junto con la ficha del árbol: código, nombre común, altura, diámetro, CO$_2$ mitigado, estado de salud, presencia de daños, requerimiento de supervisión, si es conífera, biomasa total, ubicación, fecha de registro y comentarios. Asimismo, la sección de árboles recientes lista los árboles registrados con su código, altura, estado y fecha de registro. El acceso a la cámara permanece disponible para observar la obra en RA sobre el árbol. Los árboles guardados permanecen disponibles para su consulta posterior.
+Además de la visualización en RA, la aplicación permite consultar la información de cada árbol y su escultura dentro de una pantalla de detalle, sin necesidad de estar frente al árbol. El usuario puede guardar los árboles que selecciona o escanea para volver a consultar su ficha y su escultura en cualquier momento. La pantalla de detalle muestra la obra (como modelo tridimensional que puede observarse en pantalla; para su renderizado, el modelo GLB se convierte a un componente TSX, mientras que en RA se mantiene como GLB) junto con la ficha del árbol: código, nombre común, altura, diámetro, CO$_2$ mitigado, estado de salud, presencia de daños, requerimiento de supervisión, si es conífera, biomasa total, ubicación, fecha de registro y comentarios. Asimismo, la sección de árboles recientes lista los árboles registrados con su código, altura, estado y fecha de registro. El acceso a la cámara permanece disponible para observar la obra en RA sobre el árbol. Los árboles guardados permanecen disponibles para su consulta posterior.
 
 \section{Diseño de la Base de Datos}
 \label{sec:bd}
@@ -261,7 +262,7 @@ CREATE TABLE propuestas (
 \end{lstlisting}
 
 \section{Flujo de Aprobación de Contenido}
-El ciclo de publicación de una obra artística sigue cuatro etapas secuenciales: (1) el estudiante envía una propuesta asociada a un árbol específico, ya sea como imagen (JPG) o ya en formato de RA, mediante la ruta \texttt{POST /propuesta}; (2) la propuesta se almacena con estado \emph{pendiente} en la tabla \texttt{propuestas} y el archivo se aloja temporalmente en \texttt{/arboles/pendientes/} dentro de R2; (3) el administrador del Centro Universitario correspondiente revisa la propuesta a través de \texttt{GET /propuestas} y decide aprobarla o rechazarla; (4) en caso de aprobación, el Worker actualiza el estado de la propuesta, mueve el archivo al directorio de publicadas, genera el \emph{asset} de realidad aumentada si la obra fue enviada como imagen (o lo conserva sin cambios si ya estaba en formato de RA) y actualiza el registro del árbol correspondiente.
+El ciclo de publicación de una obra artística sigue cuatro etapas secuenciales: (1) el estudiante envía una propuesta asociada a un árbol específico, ya sea como imagen (JPG) o ya en formato de RA (GLB), mediante la ruta \texttt{POST /propuesta}; (2) la propuesta se almacena con estado \emph{pendiente} en la tabla \texttt{propuestas} y el archivo se aloja temporalmente en \texttt{/arboles/pendientes/} dentro de R2; (3) el administrador del Centro Universitario correspondiente revisa la propuesta a través de \texttt{GET /propuestas} y decide aprobarla o rechazarla; (4) en caso de aprobación, el Worker actualiza el estado de la propuesta, mueve el archivo al directorio de publicadas, genera el \emph{asset} de realidad aumentada en formato GLB si la obra fue enviada como imagen (o lo conserva sin cambios si ya estaba en GLB) y actualiza el registro del árbol correspondiente.
 
 \section{Metodología de Implementación}
 El desarrollo del sistema se llevó a cabo en seis fases incrementales de una semana cada una, conforme a un enfoque ágil, como se resume en la Tabla~\ref{tab:cronograma}.
@@ -297,6 +298,8 @@ La Tabla~\ref{tab:stack} resume el conjunto tecnológico (\emph{stack}) empleado
 \midrule
 Cliente móvil & React Native + Expo \\
 Realidad aumentada & ViroReact (\texttt{@viro-community/react-viro}) \\
+Formato de obras en RA & GLB \\
+Renderizado en pantalla & Componente TSX generado a partir del GLB \\
 Escaneo de QR y cámara & \texttt{expo-camera} \\
 Almacenamiento seguro & \texttt{expo-secure-store} \\
 Navegación & React Navigation \\
@@ -314,11 +317,11 @@ Almacenamiento de objetos & Cloudflare R2 \\
     \item pantalla de inicio de sesión y de registro;
     \item pantalla principal con el logotipo y el lema del proyecto, y menú lateral de navegación;
     \item escaneo de códigos QR y acceso a la cámara para observar las obras en realidad aumentada;
-    \item visualización de la obra del árbol (modelo tridimensional) junto con su ficha técnica;
+    \item visualización de la obra del árbol (modelo tridimensional, convertido de GLB a TSX para su renderizado en pantalla) junto con su ficha técnica;
     \item guardado de los árboles seleccionados o escaneados para su consulta posterior;
     \item listado de árboles recientes;
     \item conexión con la base de datos en Cloudflare D1 y almacenamiento de obras en Cloudflare R2;
-    \item autenticación, control de roles y flujo de envío, revisión y aprobación de propuestas, con conversión de imágenes JPG al formato de RA.
+    \item autenticación, control de roles y flujo de envío, revisión y aprobación de propuestas, con conversión de imágenes JPG al formato de RA (GLB).
 \end{itemize}
 
 \section{Resultados}
