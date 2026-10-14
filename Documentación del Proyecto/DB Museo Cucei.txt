@@ -1,0 +1,76 @@
+CREATE TABLE Centros_Universitarios (
+  ID               INTEGER PRIMARY KEY AUTOINCREMENT,
+  Nombre_completo  TEXT NOT NULL UNIQUE,
+  Abreviacion      TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE Usuarios (
+  Codigo_Usuario         INTEGER PRIMARY KEY,
+  Correo_Institucional  TEXT NOT NULL UNIQUE,
+  Rol                   INTEGER NOT NULL CHECK (Rol IN (1,2,7)),   -- AJUSTE
+  Centro_ID             INTEGER REFERENCES Centros_Universitarios(ID),
+  Nombre                TEXT,
+  Apellido              TEXT,
+  Carrera               TEXT
+  Password_Hash      	TEXT
+);
+
+CREATE TABLE Arboles_Info (                                         -- AJUSTE: nombre
+  ID                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  Codigo_Arbol        TEXT UNIQUE,                                  -- NUEVO (p. ej. RECT-01-0001)
+  Nombre_Comun        TEXT,
+  Nombre_Cientifico   TEXT,
+  Familia             TEXT,
+  Sistema_radicular   TEXT,
+  Clima               TEXT,
+  Suelo               TEXT,
+  Forma               TEXT,
+  Follaje             TEXT,
+  Tipo_Follaje        TEXT,                                         -- AJUSTE
+  Crecimiento         TEXT,
+  Propagacion         TEXT,
+  Longevidad          INTEGER,
+  Tolerancia_Smog     TEXT,                                         -- AJUSTE
+  Flor_Fruto          TEXT,
+  Supervision         INTEGER CHECK (Supervision IN (0,1)),         -- AJUSTE
+  Latitud             REAL,                                         -- NUEVO (reemplaza Ubicacion)
+  Longitud            REAL,                                         -- NUEVO
+  Referencia_Ubicacion TEXT,                                        -- NUEVO (opcional)
+  Altura              REAL,                                         -- m
+  Diametro            REAL,                                         -- cm
+  Danio               TEXT,                                         -- AJUSTE
+  Salud               TEXT,
+  Biomasa             REAL,                                         -- t
+  Mitigacion_CO2      REAL,                                         -- t
+  Fecha_Registro      TEXT,                                         -- NUEVO
+  Comentarios         TEXT,                                         -- NUEVO
+  Obra_Url            TEXT,                                         -- NUEVO (GLB aprobado en R2)
+  Centro_id           INTEGER REFERENCES Centros_Universitarios(ID)
+);
+
+CREATE TABLE Propuesta (
+  ID                INTEGER PRIMARY KEY AUTOINCREMENT,
+  Arbol_id          INTEGER NOT NULL REFERENCES Arboles_Info(ID),
+  Alumno_id         INTEGER NOT NULL REFERENCES Usuarios(Codigo_Alumno),
+  Archivo_Url       TEXT NOT NULL,                                  -- NUEVO
+  Formato           TEXT CHECK (Formato IN ('JPG','GLB')),          -- NUEVO
+  Estado            TEXT NOT NULL DEFAULT 'pendiente'
+                    CHECK (Estado IN ('pendiente','aprobada','rechazada')),  -- AJUSTE
+  Comentario        TEXT,
+  Fecha_Envio       TEXT NOT NULL,
+  Fecha_resolucion  TEXT
+);
+
+CREATE TABLE Arboles_Guardados (                                    -- NUEVO
+  Codigo_Alumno  INTEGER NOT NULL REFERENCES Usuarios(Codigo_Alumno) ON DELETE CASCADE,
+  Arbol_id       INTEGER NOT NULL REFERENCES Arboles_Info(ID) ON DELETE CASCADE,
+  Fecha_Guardado TEXT NOT NULL,
+  PRIMARY KEY (Codigo_Alumno, Arbol_id)
+);
+
+CREATE TABLE Escaneos (                                             -- NUEVO
+  ID             INTEGER PRIMARY KEY AUTOINCREMENT,
+  Arbol_id       INTEGER NOT NULL REFERENCES Arboles_Info(ID),
+  Codigo_Alumno  INTEGER REFERENCES Usuarios(Codigo_Alumno),        -- NULL si es visitante
+  Fecha          TEXT NOT NULL
+);
