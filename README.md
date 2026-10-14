@@ -4,6 +4,10 @@
 
 Museo CUCEI permite a la comunidad del Centro Universitario de Ciencias Exactas e Ingenierías (CUCEI) —y potencialmente de toda la Red Universitaria de la Universidad de Guadalajara (UDG)— escanear códigos QR colocados en los árboles del campus para visualizar, en realidad aumentada, obras artísticas creadas por estudiantes.
 
+Es un proyecto universitario desarrollado para el departamento de sustentabilidad, con fines culturales, educativos y de divulgación ambiental.
+
+> **Estado del proyecto: realizado.** Museo CUCEI cuenta con todas sus funcionalidades implementadas (ver [Estado del proyecto](#-estado-del-proyecto)).
+
 ---
 
 ## 📖 Tabla de contenido
@@ -18,6 +22,8 @@ Museo CUCEI permite a la comunidad del Centro Universitario de Ciencias Exactas 
 - [API — Rutas del Worker](#-api--rutas-del-worker)
 - [Instalación y configuración](#-instalación-y-configuración)
 - [Flujo de aprobación de contenido](#-flujo-de-aprobación-de-contenido)
+- [Árboles guardados y ficha del árbol](#-árboles-guardados-y-ficha-del-árbol)
+- [Estado del proyecto](#-estado-del-proyecto)
 - [Plan de implementación](#-plan-de-implementación)
 - [Documentación académica](#-documentación-académica)
 - [Roadmap](#-roadmap)
@@ -34,15 +40,18 @@ Cada árbol del campus cuenta con un código QR físico que funciona simultánea
 1. **Identificador único** del árbol (ficha botánica, ubicación, descripción).
 2. **Marcador de realidad aumentada** (`ImageTracker`) sobre el cual se superpone la obra artística aprobada para ese árbol.
 
-Los estudiantes proponen imágenes artísticas asociadas a un árbol específico; un administrador del Centro Universitario revisa, aprueba o rechaza la propuesta, y una vez aprobada, la obra se publica y queda visible en RA para cualquier visitante que escanee el QR correspondiente.
+Los estudiantes proponen obras asociadas a un árbol específico, ya sea como imagen (JPG) o ya en formato de RA; un administrador del Centro Universitario revisa, aprueba o rechaza la propuesta, y una vez aprobada, la obra se publica y queda visible en RA para cualquier visitante que escanee el QR correspondiente.
 
 ## ✨ Características principales
 
 - 📱 App móvil multiplataforma (Android / iOS) con React Native + Expo.
 - 🔳 Escaneo de códigos QR como identificador de árbol y marcador de RA.
 - 🖼️ Visualización de arte estudiantil en realidad aumentada con ViroReact.
+- 📷 Acceso a la cámara del dispositivo para observar las obras en RA.
+- 💾 Los usuarios pueden guardar los árboles que seleccionan o escanean para consultar su información y su escultura en cualquier momento.
+- 🌿 Ficha técnica y ambiental de cada árbol (altura, diámetro, CO₂ mitigado, estado de salud, biomasa, ubicación, entre otros).
 - 🔐 Autenticación sin fricción basada en dominio de correo institucional (Cloudflare Access).
-- 🧑‍🎨 Flujo de propuesta → revisión → aprobación de contenido artístico.
+- 🧑‍🎨 Flujo de propuesta → revisión → aprobación de contenido artístico (obras en JPG o en formato de RA).
 - 🏫 Arquitectura multi-centro: cada administrador gestiona únicamente los árboles de su propio CU.
 - ☁️ Infraestructura 100% *serverless* (Cloudflare Workers, D1 y R2), operable dentro de los niveles gratuitos.
 - 📊 Registro de escaneos con fines analíticos.
@@ -74,17 +83,19 @@ El sistema se organiza en cinco capas funcionales:
 └───────────────┘  └────────────────┘
 ```
 
-El módulo de realidad aumentada usa el código QR físico como `ViroARImageMarker`: al detectarlo, la app recupera la URL del *asset* artístico asociado y lo superpone sobre el árbol en tiempo real.
+El módulo de realidad aumentada usa el código QR físico como `ViroARImageMarker`: al detectarlo, la app recupera la URL del *asset* artístico asociado y lo superpone sobre el árbol en tiempo real, usando la cámara del dispositivo.
 
 ## 👥 Roles de usuario
 
 | Rol | Nivel | Acceso | Permisos |
 |---|---|---|---|
-| **Visitante** | 1 | Cuenta compartida automática, sin login | Escanear QR, ver info del árbol, ver obra en RA |
+| **Visitante** | 1 | Cuenta compartida automática, sin login | Escanear QR, ver info del árbol, ver obra en RA, guardar árboles consultados |
 | **Estudiante** | 2 | Correo `@alumnos.udg.mx` | Todo lo del visitante + enviar propuestas de imagen |
 | **Administrador** | 7 | Correo `@udg.mx` o `@alumnos.udg.mx` | Todo lo anterior + aprobar/rechazar propuestas, asignar imágenes, alta/edición de árboles de su CU |
 
 > Cada administrador opera únicamente dentro del alcance (`scope`) de su propio Centro Universitario.
+
+> La aplicación incluye pantallas de inicio de sesión y de registro.
 
 ## 🧰 Stack tecnológico
 
@@ -92,7 +103,7 @@ El módulo de realidad aumentada usa el código QR físico como `ViroARImageMark
 |---|---|
 | Cliente móvil | React Native + Expo |
 | Realidad aumentada | [ViroReact](https://github.com/ViroCommunity/viro) (`@viro-community/react-viro`) |
-| Escaneo de QR | `expo-barcode-scanner` |
+| Escaneo de QR y cámara | `expo-camera` |
 | Almacenamiento seguro (JWT) | `expo-secure-store` |
 | Navegación | `@react-navigation/native` |
 | Notificaciones | `expo-notifications` |
@@ -133,8 +144,10 @@ El sistema usa 5 tablas principales sobre Cloudflare D1:
 - **`centros`** — catálogo de Centros Universitarios de la red UDG.
 - **`arboles`** — metadatos botánicos, ubicación, imagen aprobada y *asset* de RA.
 - **`usuarios`** — correo institucional, rol y centro de adscripción.
-- **`propuestas`** — ciclo de vida de cada imagen enviada por un estudiante (`pendiente` / `aprobada` / `rechazada`).
+- **`propuestas`** — ciclo de vida de cada obra enviada por un estudiante (`pendiente` / `aprobada` / `rechazada`).
 - **`escaneos`** — registro de interacciones con fines analíticos.
+
+El modelo incluye además una relación entre usuarios y árboles que soporta el guardado de árboles por parte del usuario. La tabla `arboles` incluye los campos de la ficha del árbol (altura, diámetro, CO₂ mitigado, estado de salud, biomasa, entre otros).
 
 ```sql
 CREATE TABLE propuestas (
@@ -157,12 +170,14 @@ El esquema completo está disponible en [`worker/schema.sql`](./worker/schema.sq
 |---|---|---|---|
 | `GET` | `/arbol/:id` | ≥ 1 | Información pública de un árbol |
 | `GET` | `/arboles` | ≥ 1 | Listado de árboles por Centro Universitario |
-| `POST` | `/propuesta` | ≥ 2 | Enviar una imagen artística |
+| `POST` | `/propuesta` | ≥ 2 | Enviar una obra (imagen JPG o formato de RA) |
 | `GET` | `/propuestas` | = 7 | Consultar propuestas pendientes |
 | `PUT` | `/aprobar/:id` | = 7 | Aprobar una propuesta |
 | `PUT` | `/rechazar/:id` | = 7 | Rechazar una propuesta |
 | `POST` | `/arbol` | = 7 | Registrar un nuevo árbol |
 | `PUT` | `/arbol/:id` | = 7 | Editar un árbol existente |
+
+La API incluye además las rutas para guardar y consultar los árboles guardados por el usuario.
 
 ## ⚙️ Instalación y configuración
 
@@ -208,6 +223,8 @@ bucket_name = "cucei-assets"
 JWT_SECRET = "TU-SECRET-AQUI"
 ```
 
+> Recomendación: los secretos no deben guardarse en texto plano en `wrangler.toml`. Configura `JWT_SECRET` con `wrangler secret put JWT_SECRET`.
+
 Despliega el Worker:
 
 ```bash
@@ -233,12 +250,41 @@ Ejecuta la app en modo desarrollo:
 npx expo start
 ```
 
+> ViroReact requiere código nativo, por lo que **no funciona con Expo Go**. Para probar la realidad aumentada usa una compilación de desarrollo (`npx expo prebuild` y luego `npx expo run:android` o `npx expo run:ios`). La app solicita permiso de cámara para el escaneo de QR y la visualización en RA.
+
 ## 🔄 Flujo de aprobación de contenido
 
-1. El **estudiante** envía una propuesta de imagen asociada a un árbol (`POST /propuesta`).
-2. La propuesta se guarda con estado `pendiente` y la imagen se aloja temporalmente en `/arboles/pendientes/` en R2.
+Las obras pueden enviarse en dos formatos:
+
+- **Imagen (JPG).** Al ser aprobada, el sistema la transforma al formato de RA y la publica.
+- **Ya en formato de RA.** Al ser aprobada, se conserva tal cual, sin conversión.
+
+Pasos:
+
+1. El **estudiante** envía una propuesta asociada a un árbol (`POST /propuesta`), como imagen JPG o en formato de RA.
+2. La propuesta se guarda con estado `pendiente` y el archivo se aloja temporalmente en `/arboles/pendientes/` en R2.
 3. El **administrador** de ese Centro Universitario revisa la propuesta (`GET /propuestas`) y decide aprobarla o rechazarla.
-4. Si se aprueba, el Worker mueve la imagen a `/arboles/aprobadas/`, genera el *asset* de RA (1024×1024 px, PNG con fondo transparente) en `/arboles/ar-assets/` y actualiza el árbol correspondiente.
+4. Si se aprueba, el Worker mueve el archivo a `/arboles/aprobadas/`; si se envió como imagen, genera el *asset* de RA (1024×1024 px, PNG con fondo transparente) en `/arboles/ar-assets/`; si ya venía en formato de RA, lo conserva sin cambios. Finalmente actualiza el árbol correspondiente.
+
+## 🌿 Árboles guardados y ficha del árbol
+
+Además de la visualización en RA con la cámara, el usuario puede consultar cada árbol desde una pantalla de detalle y **guardar los árboles que selecciona o escanea** para volver a ver su información y su escultura en cualquier momento.
+
+La ficha del árbol muestra: código (por ejemplo, `RECT-01-0001`), nombre común, altura, diámetro, CO₂ mitigado, estado de salud, presencia de daños, requerimiento de supervisión, si es conífera, biomasa total, ubicación, fecha de registro y comentarios. La sección de árboles recientes lista los árboles registrados con su código, altura, estado y fecha de registro.
+
+
+## 📍 Estado del proyecto
+
+Museo CUCEI está **realizado** y cuenta con las siguientes funcionalidades:
+
+- Pantalla de inicio de sesión y registro.
+- Pantalla principal y menú lateral (Pantalla principal, Visualizar arte, Ver árboles recientes).
+- Escaneo de códigos QR y acceso a la cámara para observar las obras en realidad aumentada.
+- Visualización de la obra del árbol (modelo 3D) con su ficha técnica.
+- Guardado de los árboles seleccionados o escaneados para su consulta posterior.
+- Listado de árboles recientes.
+- Conexión con la base de datos (Cloudflare D1) y almacenamiento de obras (Cloudflare R2).
+- Autenticación, control de roles y flujo de envío, revisión y aprobación de propuestas, con conversión de imágenes JPG al formato de RA.
 
 ## 🗓️ Plan de implementación
 
@@ -277,7 +323,7 @@ Las contribuciones son bienvenidas. Para colaborar:
 
 - **Estrada Huerta Félix Eduardo**
 - **Hernández Ruvalcaba Dania Jazmín**
-- **Alan Eduardo**
+- **González Ramírez Alan Leonardo**
 
 Centro Universitario de Ciencias Exactas e Ingenierías (CUCEI) — Universidad de Guadalajara.
 
